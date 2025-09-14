@@ -1,0 +1,265 @@
+% Simplified version for online compilation
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\geometry{margin=1in}
+
+% Basic code listing settings
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    frame=single,
+    breaklines=true
+}
+
+\title{\textbf{Laboratory No. 3}\\
+\textbf{DNS Server Configuration}\\
+\large Computer Networks}
+
+\author{Student 1: Cristian\\
+Student 2: Andersson\\
+\\
+Computer Networks Course\\
+University Name}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\newpage
+
+\tableofcontents
+\newpage
+
+\section{Objectives}
+
+\subsection{General Objective}
+Implement and configure a complete DNS infrastructure using multiple operating systems to understand name resolution principles, zone transfers, and distributed DNS services.
+
+\subsection{Specific Objectives}
+\begin{enumerate}
+    \item Configure primary DNS servers on Slackware Linux and Solaris
+    \item Implement secondary DNS servers for redundancy
+    \item Set up DNS zone files with A, AAAA, CNAME, and NS records
+    \item Test DNS resolution functionality using nslookup
+    \item Document configuration and troubleshooting procedures
+\end{enumerate}
+
+\section{Implementation}
+
+\subsection{Network Configuration}
+\begin{itemize}
+    \item IP Range: 10.2.77.176/24
+    \item Slackware DNS: 10.2.77.176 (Primary for andersson.org.uk)
+    \item Solaris DNS: 10.2.77.178 (Primary for cristian.com.it)
+\end{itemize}
+
+\subsection{Slackware DNS Configuration}
+
+The Slackware system serves as primary DNS for andersson.org.uk domain.
+
+\subsubsection{Main Configuration File}
+File: /etc/named.conf
+
+\begin{lstlisting}[language=bash]
+options {
+    directory "/var/named";
+    allow-query { any; };
+    recursion yes;
+};
+
+zone "." IN {
+    type hint;
+    file "caching-example/named.root";
+};
+
+zone "andersson.org.uk" IN {
+    type master;
+    file "andersson.org.uk.zone";
+    allow-transfer { 10.2.77.178; };
+};
+
+zone "cristian.com.it" IN {
+    type slave;
+    file "cristian.com.it.slave";
+    masters { 10.2.77.178; };
+};
+\end{lstlisting}
+
+\subsubsection{Zone File Configuration}
+File: /var/named/andersson.org.uk.zone
+
+\begin{lstlisting}[language=bash]
+$TTL 86400
+@ IN SOA dns.andersson.org.uk. admin.andersson.org.uk. (
+    2024120301  ; Serial
+    3600        ; Refresh
+    1800        ; Retry
+    604800      ; Expire
+    86400       ; Minimum TTL
+)
+
+; Name Server
+@ IN NS dns.andersson.org.uk.
+
+; IPv4 addresses
+dns     IN A 10.2.77.176
+server1 IN A 10.2.77.177
+server2 IN A 10.2.77.178
+server3 IN A 10.2.77.179
+
+; IPv6 addresses
+server1 IN AAAA 2001:db8::1
+server2 IN AAAA 2001:db8::2
+
+; Aliases
+www  IN CNAME server1.andersson.org.uk.
+mail IN CNAME server2.andersson.org.uk.
+web  IN CNAME server1.andersson.org.uk.
+\end{lstlisting}
+
+\subsection{Solaris DNS Configuration}
+
+The Solaris system serves as primary DNS for cristian.com.it domain.
+
+\subsubsection{Main Configuration}
+File: /etc/named.conf
+
+\begin{lstlisting}[language=bash]
+options {
+    directory "/var/named";
+    allow-query { any; };
+    recursion yes;
+};
+
+zone "." IN {
+    type hint;
+    file "named.ca";
+};
+
+zone "cristian.com.it" IN {
+    type master;
+    file "cristian.com.it.zone";
+    allow-transfer { 10.2.77.176; };
+};
+
+zone "andersson.org.uk" IN {
+    type slave;
+    file "andersson.org.uk.slave";
+    masters { 10.2.77.176; };
+};
+\end{lstlisting}
+
+\subsubsection{Zone File}
+File: /var/named/cristian.com.it.zone
+
+\begin{lstlisting}[language=bash]
+$TTL 86400
+@ IN SOA dns.cristian.com.it. admin.cristian.com.it. (
+    2024120401  ; Serial
+    3600        ; Refresh
+    1800        ; Retry
+    604800      ; Expire
+    86400       ; Minimum TTL
+)
+
+; Name Server
+@ IN NS dns.cristian.com.it.
+
+; IPv4 addresses
+dns     IN A 10.2.77.178
+server1 IN A 10.2.77.180
+server2 IN A 10.2.77.181
+server3 IN A 10.2.77.182
+
+; IPv6 addresses
+server1 IN AAAA 2001:db8:1::1
+server2 IN AAAA 2001:db8:1::2
+
+; Aliases
+www  IN CNAME server1.cristian.com.it.
+mail IN CNAME server2.cristian.com.it.
+web  IN CNAME server1.cristian.com.it.
+ftp  IN CNAME server3.cristian.com.it.
+\end{lstlisting}
+
+\section{Testing and Verification}
+
+\subsection{Service Startup}
+\begin{lstlisting}[language=bash]
+# Start DNS service
+/usr/sbin/named
+
+# Verify service is running
+ps aux | grep named
+netstat -ln | grep :53
+\end{lstlisting}
+
+\subsection{DNS Resolution Testing}
+\begin{lstlisting}[language=bash]
+# Test local domain resolution
+nslookup dns.cristian.com.it
+nslookup www.andersson.org.uk
+nslookup server1.cristian.com.it
+
+# Test external resolution
+nslookup www.google.com
+nslookup www.escuelaing.edu.co
+\end{lstlisting}
+
+\subsection{Advanced nslookup Testing}
+\begin{lstlisting}[language=bash]
+nslookup
+> set type=A
+> server1.cristian.com.it
+> set type=AAAA
+> server1.cristian.com.it
+> set type=NS
+> cristian.com.it
+> set type=CNAME
+> www.cristian.com.it
+> exit
+\end{lstlisting}
+
+\section{Results}
+
+The DNS implementation achieved:
+\begin{itemize}
+    \item Primary DNS servers configured on both Slackware and Solaris
+    \item Secondary DNS replication working between servers
+    \item All record types (A, AAAA, CNAME, NS) resolving correctly
+    \item External domain resolution maintained
+    \item Zone transfers functioning properly
+\end{itemize}
+
+\section{Troubleshooting}
+
+Common issues encountered:
+\begin{enumerate}
+    \item Configuration syntax errors - Use named-checkconf
+    \item Zone file format errors - Use named-checkzone
+    \item Service startup problems - Check port 53 availability
+    \item Resolution failures - Verify /etc/resolv.conf
+\end{enumerate}
+
+\section{Conclusions}
+
+This laboratory provided comprehensive experience with:
+\begin{itemize}
+    \item Multi-platform DNS server configuration
+    \item Zone file management and record types
+    \item Primary/secondary DNS relationships
+    \item DNS troubleshooting methodologies
+    \item Network service integration
+\end{itemize}
+
+The implementation successfully created a robust DNS infrastructure demonstrating enterprise-level name resolution services across heterogeneous operating systems.
+
+\end{document}
